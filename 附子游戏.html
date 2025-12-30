@@ -1,0 +1,415 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>闯关游戏：真武汤中附子的运用</title>
+    <style>
+        :root {
+            --primary-color: #8b4513; /* 马鞍棕 */
+            --secondary-color: #f4e1d2; /* 浅米色 */
+            --accent-color: #d2691e; /* 巧克力色 */
+            --success-color: #2e7d32; /* 森林绿 */
+            --error-color: #c62828; /* 朱砂红 */
+            --bg-color: #fdf5e6; /* 老旧纸张色 */
+        }
+
+        body {
+            font-family: "Microsoft YaHei", "SimSun", serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        #game-container {
+            width: 90%;
+            max-width: 600px;
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            border: 2px solid var(--primary-color);
+            position: relative;
+        }
+
+        /* 标题与进度 */
+        h1 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-top: 0;
+            font-size: 24px;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+        }
+
+        .progress-bar {
+            height: 10px;
+            background: #eee;
+            border-radius: 5px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        #progress-fill {
+            height: 100%;
+            background: var(--accent-color);
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+
+        /* 题目区域 */
+        #question-area {
+            min-height: 250px;
+        }
+
+        .question-text {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .options-container {
+            display: grid;
+            gap: 12px;
+        }
+
+        .option {
+            padding: 12px 15px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: #fff;
+            display: flex;
+            align-items: center;
+        }
+
+        .option:hover {
+            background-color: var(--secondary-color);
+        }
+
+        .option.selected {
+            border-color: var(--accent-color);
+            background-color: var(--secondary-color);
+            font-weight: bold;
+        }
+
+        /* 按钮 */
+        .controls {
+            margin-top: 30px;
+            display: flex;
+            justify-content: center;
+        }
+
+        button {
+            padding: 12px 40px;
+            font-size: 16px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.1s, opacity 0.2s;
+        }
+
+        button:active {
+            transform: scale(0.95);
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* 动画效果 */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .shake {
+            animation: shake 0.4s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-10px); }
+            75% { transform: translateX(10px); }
+        }
+
+        /* 结果层 */
+        #result-screen {
+            text-align: center;
+            display: none;
+        }
+
+        .feedback {
+            margin-top: 10px;
+            font-weight: bold;
+            height: 24px;
+            text-align: center;
+        }
+
+        .correct { color: var(--success-color); }
+        .wrong { color: var(--error-color); }
+
+        .type-badge {
+            font-size: 12px;
+            background: var(--primary-color);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-right: 8px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="start-screen">
+        <h1>中医方剂：真武汤闯关</h1>
+        <p style="text-align: center; color: #666;">关于“附子”的运用技巧，你能答对多少？</p>
+        <div class="controls">
+            <button onclick="startGame()">开始闯关</button>
+        </div>
+    </div>
+
+    <div id="quiz-screen" style="display: none;">
+        <h1 id="level-title">第一关</h1>
+        <div class="progress-bar">
+            <div id="progress-fill"></div>
+        </div>
+        
+        <div id="question-area" class="fade-in">
+            <div class="question-text" id="question-text">加载中...</div>
+            <div class="options-container" id="options-container"></div>
+            <div id="feedback-msg" class="feedback"></div>
+        </div>
+
+        <div class="controls">
+            <button id="submit-btn" onclick="handleSubmit()">提交答案</button>
+        </div>
+    </div>
+
+    <div id="result-screen">
+        <h1>闯关结束！</h1>
+        <p id="score-text" style="font-size: 20px;"></p>
+        <p id="commentary"></p>
+        <div class="controls">
+            <button onclick="location.reload()">重新挑战</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const questions = [
+        {
+            title: "第一关：辨识品种",
+            question: "真武汤的附子是生附子还是熟附子？",
+            type: "single",
+            options: ["A. 生附子", "B. 熟附子"],
+            answer: [1] // B
+        },
+        {
+            title: "第二关：功用之别",
+            question: "生附子和熟附子在功效上有什么区别？",
+            type: "single",
+            options: [
+                "A. 生附子药性峻猛，偏于回阳救逆",
+                "B. 熟附子偏于温补命门之火",
+                "C. 上述都不对"
+            ],
+            answer: [1] // B
+        },
+        {
+            title: "第三关：剂量把握",
+            question: "真武汤临床常用的附子剂量多大？",
+            type: "single",
+            options: ["A. 3g以下", "B. 3-15g", "C. 15g以上"],
+            answer: [1] // B
+        },
+        {
+            title: "第四关：煎煮法门",
+            question: "附子的煎服方法是什么？",
+            type: "single",
+            options: [
+                "A. 先煎1小时以上",
+                "B. 同煎",
+                "C. 后下",
+                "D. 溶服"
+            ],
+            answer: [0] // A
+        },
+        {
+            title: "第五关：毒性警示",
+            question: "常见毒性反应有哪些？（多选）",
+            type: "multiple",
+            options: [
+                "A. 心血管系统反应，如心跳加速",
+                "B. 神经系统反应，如舌尖、头皮或四肢末端麻木",
+                "C. 消化系统反应，如恶心、呕吐、腹泻等",
+                "D. 呼吸系统，如呼吸抑制等"
+            ],
+            answer: [0, 1, 2, 3] // ABCD
+        },
+        {
+            title: "第六关：解毒之法",
+            question: "如何解附子的毒性？（多选）",
+            type: "multiple",
+            options: [
+                "A. 蜂蜜",
+                "B. 甘草",
+                "C. 绿豆",
+                "D. 及时送医"
+            ],
+            answer: [0, 1, 2, 3] // ABCD
+        },
+        {
+            title: "第七关：相须为用",
+            question: "真武汤中为什么用生姜配附子？（多选）",
+            type: "multiple",
+            options: [
+                "A. 减附子的毒性",
+                "B. 发散水气",
+                "C. 和胃止呕",
+                "D. 温补脾阳"
+            ],
+            answer: [0, 1, 2] // ABC
+        }
+    ];
+
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let selectedOptions = [];
+
+    function startGame() {
+        document.getElementById('start-screen').style.display = 'none';
+        document.getElementById('quiz-screen').style.display = 'block';
+        loadQuestion();
+    }
+
+    function loadQuestion() {
+        const q = questions[currentQuestionIndex];
+        const container = document.getElementById('question-area');
+        const optionsContainer = document.getElementById('options-container');
+        const feedback = document.getElementById('feedback-msg');
+        
+        // 重置状态
+        container.classList.remove('fade-in');
+        void container.offsetWidth; // 触发回流
+        container.classList.add('fade-in');
+        
+        feedback.textContent = "";
+        selectedOptions = [];
+        
+        // 更新标题和进度
+        document.getElementById('level-title').textContent = q.title;
+        document.getElementById('progress-fill').style.width = `${((currentQuestionIndex) / questions.length) * 100}%`;
+        
+        // 设置题目文字
+        const badge = q.type === 'multiple' ? '<span class="type-badge">多选</span>' : '<span class="type-badge">单选</span>';
+        document.getElementById('question-text').innerHTML = badge + q.question;
+        
+        // 渲染选项
+        optionsContainer.innerHTML = "";
+        q.options.forEach((opt, index) => {
+            const div = document.createElement('div');
+            div.className = 'option';
+            div.textContent = opt;
+            div.onclick = () => selectOption(index, div);
+            optionsContainer.appendChild(div);
+        });
+
+        document.getElementById('submit-btn').textContent = "提交答案";
+    }
+
+    function selectOption(index, element) {
+        const q = questions[currentQuestionIndex];
+        
+        if (q.type === 'single') {
+            // 单选逻辑
+            const allOptions = document.querySelectorAll('.option');
+            allOptions.forEach(el => el.classList.remove('selected'));
+            element.classList.add('selected');
+            selectedOptions = [index];
+        } else {
+            // 多选逻辑
+            if (selectedOptions.includes(index)) {
+                selectedOptions = selectedOptions.filter(i => i !== index);
+                element.classList.remove('selected');
+            } else {
+                selectedOptions.push(index);
+                element.classList.add('selected');
+            }
+        }
+    }
+
+    function handleSubmit() {
+        if (selectedOptions.length === 0) {
+            alert("请先选择一个答案！");
+            return;
+        }
+
+        const q = questions[currentQuestionIndex];
+        const feedback = document.getElementById('feedback-msg');
+        const container = document.getElementById('game-container');
+
+        // 检查正确性 (数组内容匹配)
+        const isCorrect = q.answer.length === selectedOptions.length && 
+                          q.answer.every(val => selectedOptions.sort().includes(val));
+
+        if (isCorrect) {
+            score++;
+            feedback.innerHTML = '<span class="correct">恭喜！回答正确。</span>';
+            setTimeout(nextQuestion, 1000);
+        } else {
+            feedback.innerHTML = `<span class="wrong">遗憾！回答错误。</span>`;
+            container.classList.add('shake');
+            setTimeout(() => {
+                container.classList.remove('shake');
+                nextQuestion();
+            }, 1200);
+        }
+    }
+
+    function nextQuestion() {
+        currentQuestionIndex++;
+        if (currentQuestionIndex < questions.length) {
+            loadQuestion();
+        } else {
+            showResult();
+        }
+    }
+
+    function showResult() {
+        document.getElementById('quiz-screen').style.display = 'none';
+        document.getElementById('result-screen').style.display = 'block';
+        document.getElementById('progress-fill').style.width = '100%';
+        
+        const scoreText = document.getElementById('score-text');
+        scoreText.textContent = `你的得分是：${score} / ${questions.length}`;
+        
+        let commentary = "";
+        if (score === questions.length) {
+            commentary = "太棒了！你对真武汤中附子的运用了如指掌，真乃当代名医！";
+        } else if (score >= 4) {
+            commentary = "很不错！你已经掌握了附子运用的核心要点，再接再厉。";
+        } else {
+            commentary = "附子乃“回阳救逆第一品”，用之得当则效如桴鼓，建议复习后再挑战。";
+        }
+        document.getElementById('commentary').textContent = commentary;
+    }
+</script>
+
+</body>
+</html>
